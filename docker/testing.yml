@@ -1,0 +1,79 @@
+---
+version: "2.1"
+services:
+  # ZOOKEEPER
+  zookeeper:
+    # For more info: https://hub.docker.com/r/library/zookeeper/
+    image: zookeeper:3.4
+    expose:
+      # Ports exposed to other containers of this network
+      - "2181"
+    ports:
+      # Ports mapped to host
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc 127.0.0.1 2181 | grep -q imok"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  kafka:
+    # env_file:
+    #   - .development.env
+    # For more info: https://hub.docker.com/r/wurstmeister/kafka/
+    image: wurstmeister/kafka:0.10.2.1
+    expose:
+      # Ports exposed to other containers of this network
+      - "9092"
+      - "9999"
+    ports:
+      # Ports mapped to host
+      - "9999:9999"
+      - "9092:9092"
+    environment:
+      # Create topics, format is "<name>:<partitions>:<replication-factor>"
+      KAFKA_CREATE_TOPICS: "noisy-sinusoid:8:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_PORT: "9092"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_AUTO_LEADER_REBALANCE_ENABLE: "true"
+      HOSTNAME_COMMAND: "hostname"  # this command's output will populate KAFKA_ADVERTISED_HOST_NAME and used in KAFKA_JMX_OPTS
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zookeeper
+    healthcheck:
+      # this healthcheck test needs revisit, temp work around:
+      # possible fix https://github.com/wurstmeister/kafka-docker/issues/167
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --zookeeper zookeeper:2181 --describe > /dev/null"]
+      interval: 10s
+      timeout: 7s
+      retries: 10
+
+  spark:
+    image: bde2020/spark-base:2.3.0-hadoop2.7
+    ports:
+      - "4040:4040"
+    volumes:
+    - ../processor/:/app/kafka-processor
+    depends_on:
+      - kafka
+    entrypoint:
+      - /bin/bash
+      - -c
+      - /spark/bin/spark-submit --master "local[*]" /app/kafka-processor/target/scala-2.11/kafka-processor-assembly-1.0.0.jar
+
+  generator:
+    image: java:8
+    volumes:
+    - ../generator/:/app/kafka-generator
+    working_dir: /app/kafka-generator
+    entrypoint:
+      - /bin/bash
+      - -c
+      - java -jar /app/kafka-generator/target/scala-2.11/kafka-generator-assembly-1.0.0.jar
