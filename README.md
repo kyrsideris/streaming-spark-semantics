@@ -8,6 +8,16 @@ to messages to Kafka asynchronously.
 
 The project includes a Docker compose file to test the producer and consumer.
  
+Version tested with:
+
+| Software       | Version   |
+|:--------------:|:---------:|
+| Scala          | `2.11.12` |
+| SBT            | `0.13.17` |
+| Java           | `1.8`     |
+| Docker CE      | `17.12`   |
+| docker-compose | `1.18`    |
+
 ## Testing
 
 - Build the two jars: `sbt clean assembly`
