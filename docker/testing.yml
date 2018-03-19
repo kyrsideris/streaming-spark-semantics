@@ -55,7 +55,7 @@ services:
       timeout: 7s
       retries: 10
 
-  spark:
+  processor:
     image: bde2020/spark-base:2.3.0-hadoop2.7
     ports:
       - "4040:4040"
@@ -72,6 +72,8 @@ services:
     image: java:8
     volumes:
     - ../generator/:/app/kafka-generator
+    depends_on:
+      - kafka
     working_dir: /app/kafka-generator
     entrypoint:
       - /bin/bash
